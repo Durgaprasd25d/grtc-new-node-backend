@@ -17,6 +17,8 @@ jspm_packages/
 # Optional yarn cache directory
 .yarn
 
+# Personal Data
+uploads/
 # Environment variables
 .env
 

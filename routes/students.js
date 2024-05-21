@@ -2,7 +2,7 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const QRCode = require("qrcode");
 const { body, validationResult } = require("express-validator");
-
+const upload = require('../multer/multer.js'); // Correctly import multer
 const Student = require("../models/student.js");
 const User = require("../models/user.js");
 const auth = require("../middleware/auth");
@@ -24,8 +24,8 @@ const validateStudent = [
   body("grade").notEmpty().withMessage("Grade is required").trim().escape(),
 ];
 
-// Create student
-router.post("/", auth, validateStudent, async (req, res) => {
+// Create student route
+router.post("/", auth, upload.fields([{ name: 'profilePic' }, { name: 'certificatePic' }]), validateStudent, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
@@ -42,8 +42,6 @@ router.post("/", auth, validateStudent, async (req, res) => {
     fathersName,
     address,
     grade,
-    profilePic,
-    certificatePic,
   } = req.body;
 
   const newStudent = new Student({
@@ -57,13 +55,12 @@ router.post("/", auth, validateStudent, async (req, res) => {
     fathersName,
     address,
     grade,
-    profilePic,
-    certificatePic,
+    profilePic: req.files && req.files['profilePic'] ? req.files['profilePic'][0].path : undefined,
+    certificatePic: req.files && req.files['certificatePic'] ? req.files['certificatePic'][0].path : undefined,
     user: req.user._id,
   });
 
   try {
-    // Generate QR Code with only specified data
     const qrCodeData = await QRCode.toDataURL(
       JSON.stringify({
         name: newStudent.name,
@@ -77,29 +74,24 @@ router.post("/", auth, validateStudent, async (req, res) => {
     await newStudent.save();
     res.status(201).send("Student created");
   } catch (err) {
-    console.error("Error generating QR code:", err); // Log the specific error
+    console.error("Error generating QR code:", err);
     res.status(500).send("Failed to generate QR code");
   }
 });
 
-
 // Get all students created by the logged-in user
 router.get("/", auth, async (req, res) => {
   try {
-    // Pagination parameters
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10; // Default limit is 10
+    const limit = parseInt(req.query.limit) || 10;
 
-    // Calculate skip based on page and limit
     const skip = (page - 1) * limit;
 
-    // Fetch students and total count
     const [students, totalCount] = await Promise.all([
       Student.find({ user: req.user._id }).skip(skip).limit(limit),
       Student.countDocuments({ user: req.user._id })
     ]);
 
-    // Response with pagination metadata
     res.json({
       students,
       total: totalCount,
@@ -112,9 +104,8 @@ router.get("/", auth, async (req, res) => {
   }
 });
 
-
 // Update student
-router.put("/:id", auth, validateStudent, async (req, res) => {
+router.put("/:id", auth, upload.fields([{ name: 'profilePic' }, { name: 'certificatePic' }]), validateStudent, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
@@ -131,8 +122,6 @@ router.put("/:id", auth, validateStudent, async (req, res) => {
     fathersName,
     address,
     grade,
-    profilePic,
-    certificatePic,
   } = req.body;
 
   try {
@@ -149,8 +138,8 @@ router.put("/:id", auth, validateStudent, async (req, res) => {
         fathersName,
         address,
         grade,
-        profilePic,
-        certificatePic,
+        profilePic: req.files && req.files['profilePic'] ? req.files['profilePic'][0].path : undefined,
+        certificatePic: req.files && req.files['certificatePic'] ? req.files['certificatePic'][0].path : undefined,
       },
       { new: true, runValidators: true }
     );
@@ -159,7 +148,6 @@ router.put("/:id", auth, validateStudent, async (req, res) => {
       return res.status(404).send("Student not found");
     }
 
-    // Generate new QR Code
     const qrCodeData = await QRCode.toDataURL(
       JSON.stringify({
         name: student.name,
@@ -174,7 +162,7 @@ router.put("/:id", auth, validateStudent, async (req, res) => {
 
     res.json(student);
   } catch (err) {
-    console.error("Error updating student:", err); // Log the specific error
+    console.error("Error updating student:", err);
     res.status(500).send("Failed to update student");
   }
 });
@@ -193,7 +181,7 @@ router.delete("/:id", auth, async (req, res) => {
 
     res.status(200).send("Student deleted");
   } catch (err) {
-    console.error("Error deleting student:", err); // Log the specific error
+    console.error("Error deleting student:", err);
     res.status(500).send("Failed to delete student");
   }
 });
@@ -213,6 +201,5 @@ router.get("/:id", auth, async (req, res) => {
     res.status(500).send("Failed to fetch student");
   }
 });
-
 
 module.exports = router;
