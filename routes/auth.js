@@ -73,7 +73,7 @@ router.post(
       }
 
       const token = jwt.sign({ userId: user._id }, secret, { expiresIn: "1h" });
-      res.json({ token });
+      res.json({ user,token });
     } catch (err) {
       console.error("Error logging in user:", err);
       res.status(500).send("Server error");

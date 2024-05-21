@@ -11,21 +11,10 @@ const router = express.Router();
 const secret = "your_jwt_secret";
 
 // Validation middleware
-const validateStudent = [
-  body("name").notEmpty().withMessage("Name is required").trim().escape(),
-  body("registrationNo").notEmpty().withMessage("Registration number is required").trim().escape(),
-  body("course").notEmpty().withMessage("Course is required").trim().escape(),
-  body("dateOfAdmission").notEmpty().withMessage("Date of admission is required").trim().escape(),
-  body("courseDuration").notEmpty().withMessage("Course duration is required").trim().escape(),
-  body("dateOfBirth").notEmpty().withMessage("Date of birth is required").trim().escape(),
-  body("mothersName").notEmpty().withMessage("Mother's name is required").trim().escape(),
-  body("fathersName").notEmpty().withMessage("Father's name is required").trim().escape(),
-  body("address").notEmpty().withMessage("Address is required").trim().escape(),
-  body("grade").notEmpty().withMessage("Grade is required").trim().escape(),
-];
+
 
 // Create student route
-router.post("/", auth, upload.fields([{ name: 'profilePic' }, { name: 'certificatePic' }]), validateStudent, async (req, res) => {
+router.post("/", auth, upload.fields([{ name: 'profilePic' }, { name: 'certificatePic' }]),  async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
@@ -105,7 +94,7 @@ router.get("/", auth, async (req, res) => {
 });
 
 // Update student
-router.put("/:id", auth, upload.fields([{ name: 'profilePic' }, { name: 'certificatePic' }]), validateStudent, async (req, res) => {
+router.put("/:id", auth, upload.fields([{ name: 'profilePic' }, { name: 'certificatePic' }]), async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
