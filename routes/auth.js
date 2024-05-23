@@ -30,13 +30,18 @@ router.post("/register", validateUser, async (req, res) => {
 
   const { email, password } = req.body;
   try {
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ errors: [{ msg: "User already exists" }] });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = new User({ email, password: hashedPassword });
     await newUser.save();
-    res.status(201).send("User registered");
+    res.status(201).json({ msg: "User registered successfully" });
   } catch (err) {
     console.error("Error registering user:", err);
-    res.status(500).send("Server error");
+    res.status(500).json({ errors: [{ msg: "Server error" }] });
   }
 });
 
@@ -64,19 +69,23 @@ router.post(
     try {
       const user = await User.findOne({ email });
       if (!user) {
-        return res.status(400).send("Invalid credentials");
+        return res
+          .status(400)
+          .json({ errors: [{ msg: "Invalid credentials" }] });
       }
 
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
-        return res.status(400).send("Invalid credentials");
+        return res
+          .status(400)
+          .json({ errors: [{ msg: "Invalid credentials" }] });
       }
 
       const token = jwt.sign({ userId: user._id }, secret, { expiresIn: "1h" });
-      res.json({ user,token });
+      res.json({ user, token });
     } catch (err) {
       console.error("Error logging in user:", err);
-      res.status(500).send("Server error");
+      res.status(500).json({ errors: [{ msg: "Server error" }] });
     }
   }
 );
