@@ -5,20 +5,24 @@ const cors = require("cors");
 const path = require("path");
 const dotenv = require("dotenv");
 
-dotenv.config();  // Load environment variables from .env file
+dotenv.config(); // Load environment variables from .env file
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const authRoutes = require("./routes/auth");
 const studentRoutes = require("./routes/students");
+const studentAuthRoute = require("./routes/studentAuth");
 const examRoutes = require("./routes/examsRoute");
 const questionRoute = require("./routes/questionRoute");
 const imageRoute = require("./routes/imgToBase64");
 
 // Connect to MongoDB
 mongoose
-  .connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.log(err));
 
@@ -29,9 +33,9 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/students", studentAuthRoute);
 app.use("/api/students", studentRoutes);
 app.use("/api/exam", examRoutes);
 app.use("/api/questions", questionRoute);

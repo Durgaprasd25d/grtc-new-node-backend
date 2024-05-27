@@ -13,11 +13,13 @@ const secret = "your_jwt_secret";
 // Validation middleware
 
 // Create student route
+// POST route to create a new student
 router.post(
   "/",
   auth,
   upload.fields([{ name: "profilePic" }, { name: "certificatePic" }]),
   async (req, res) => {
+    // Validate request
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
@@ -34,31 +36,41 @@ router.post(
       fathersName,
       address,
       grade,
+      password, // Add password to the student creation process
     } = req.body;
 
-    const newStudent = new Student({
-      name,
-      registrationNo,
-      course,
-      dateOfAdmission,
-      courseDuration,
-      dateOfBirth,
-      mothersName,
-      fathersName,
-      address,
-      grade,
-      profilePic:
-        req.files && req.files["profilePic"]
-          ? req.files["profilePic"][0].path
-          : undefined,
-      certificatePic:
-        req.files && req.files["certificatePic"]
-          ? req.files["certificatePic"][0].path
-          : undefined,
-      user: req.user._id,
-    });
-
     try {
+      // Check if a student with the given registration number already exists
+      let existingStudent = await Student.findOne({ registrationNo });
+      if (existingStudent) {
+        return res.status(400).json({ message: "Registration number exists" });
+      }
+
+      // Create a new student object
+      const newStudent = new Student({
+        name,
+        registrationNo,
+        course,
+        dateOfAdmission,
+        courseDuration,
+        dateOfBirth,
+        mothersName,
+        fathersName,
+        address,
+        grade,
+        password, // Include password in the new student object
+        profilePic:
+          req.files && req.files["profilePic"]
+            ? req.files["profilePic"][0].path
+            : undefined,
+        certificatePic:
+          req.files && req.files["certificatePic"]
+            ? req.files["certificatePic"][0].path
+            : undefined,
+        user: req.user._id,
+      });
+
+      // Generate QR code data
       const qrCodeData = await QRCode.toDataURL(
         JSON.stringify({
           name: newStudent.name,
@@ -68,15 +80,23 @@ router.post(
         })
       );
 
+      // Assign QR code data to the new student
       newStudent.qrCode = qrCodeData;
+
+      // Save the new student to the database
       await newStudent.save();
+
+      // Send success response
       res.status(201).send("Student created");
     } catch (err) {
-      console.error("Error generating QR code:", err);
-      res.status(500).send("Failed to generate QR code");
+      console.error("Error generating QR code or saving student:", err);
+      res.status(500).send("Server error");
     }
   }
 );
+
+module.exports = router;
+
 
 // Get all students created by the logged-in user
 router.get("/", auth, async (req, res) => {
@@ -125,6 +145,7 @@ router.put(
       fathersName,
       address,
       grade,
+      password, // Include password in the student update process
     } = req.body;
 
     try {
@@ -141,6 +162,7 @@ router.put(
           fathersName,
           address,
           grade,
+          password, // Include password in the update object
           profilePic:
             req.files && req.files["profilePic"]
               ? req.files["profilePic"][0].path
@@ -215,29 +237,41 @@ router.get("/:id", auth, async (req, res) => {
   }
 });
 
-router.post("/search/registrationNo", async (req, res) => {
+router.post("/login", async (req, res) => {
   try {
-    const { registrationNo } = req.body; // Use req.body for POST request parameters
+    const { registrationNo, password } = req.body;
 
-    if (!registrationNo) {
+    // Check if registration number and password are provided
+    if (!registrationNo || !password) {
       return res
         .status(400)
-        .send({ message: "Registration number is required" });
+        .json({ message: "Registration number and password are required" });
     }
 
+    // Find the student by registration number
     const student = await Student.findOne({ registrationNo });
 
+    // If student is not found, return an error
     if (!student) {
-      return res.status(404).send({ message: "Student not found" });
+      return res.status(404).json({ message: "Student not found" });
     }
 
-    res.status(200).send(student);
+    // Check if the provided password matches the stored password
+    if (student.password !== password) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign({ studentId: student._id }, secret, {
+      expiresIn: "1h", // Token expires in 1 hour
+    });
+
+    // Send the token back to the client
+    res.status(200).json({ token });
   } catch (error) {
-    res
-      .status(500)
-      .send({ message: "Internal Server Error", error: error.message });
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
   }
 });
-module.exports = router;
 
 module.exports = router;

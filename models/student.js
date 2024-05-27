@@ -15,6 +15,9 @@ const studentSchema = new mongoose.Schema({
   certificatePic: { type: String },
   qrCode: { type: String },
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  attendedExams: { type: Number, default: 0 },
+  attendedExamsList: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Exam' }], // New field for tracking attended exams
+  password: { type: String }, // New field for storing student password
 });
 
 const Student = mongoose.model("Student", studentSchema);
