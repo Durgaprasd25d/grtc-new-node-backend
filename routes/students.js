@@ -10,14 +10,11 @@ const auth = require("../middleware/auth");
 const router = express.Router();
 const secret = "your_jwt_secret";
 
-// Validation middleware
-
-// Create student route
 // POST route to create a new student
 router.post(
   "/",
   auth,
-  upload.fields([{ name: "profilePic" }, { name: "certificatePic" }]),
+  upload.fields([{ name: "profilePic" }, { name: "certificatepic" }]),
   async (req, res) => {
     // Validate request
     const errors = validationResult(req);
@@ -30,13 +27,13 @@ router.post(
       registrationNo,
       course,
       dateOfAdmission,
-      courseDuration,
-      dateOfBirth,
-      mothersName,
-      fathersName,
+      courseduration,
+      dob,
+      moteherName,
+      fatherName,
       address,
       grade,
-      password, // Add password to the student creation process
+      password,
     } = req.body;
 
     try {
@@ -52,20 +49,20 @@ router.post(
         registrationNo,
         course,
         dateOfAdmission,
-        courseDuration,
-        dateOfBirth,
-        mothersName,
-        fathersName,
+        courseduration,
+        dob,
+        moteherName,
+        fatherName,
         address,
         grade,
-        password, // Include password in the new student object
+        password,
         profilePic:
           req.files && req.files["profilePic"]
             ? req.files["profilePic"][0].path
             : undefined,
-        certificatePic:
-          req.files && req.files["certificatePic"]
-            ? req.files["certificatePic"][0].path
+        certificatepic:
+          req.files && req.files["certificatepic"]
+            ? req.files["certificatepic"][0].path
             : undefined,
         user: req.user._id,
       });
@@ -76,7 +73,7 @@ router.post(
           name: newStudent.name,
           registrationNo: newStudent.registrationNo,
           course: newStudent.course,
-          dateOfBirth: newStudent.dateOfBirth,
+          dob: newStudent.dob,
         })
       );
 
@@ -95,8 +92,83 @@ router.post(
   }
 );
 
-module.exports = router;
+router.put(
+  "/:id",
+  auth,
+  upload.fields([{ name: "profilePic" }, { name: "certificatepic" }]),
+  async (req, res) => {
+    const {
+      name,
+      course,
+      dateOfAdmission,
+      courseduration,
+      dob,
+      moteherName,
+      fatherName,
+      address,
+      grade,
+      password,
+      hasAssignedExams, // Allow exam assignments
+    } = req.body;
 
+    try {
+      const updateData = {
+        name,
+        course,
+        dateOfAdmission,
+        courseduration,
+        dob,
+        moteherName,
+        fatherName,
+        address,
+        grade,
+      };
+
+      if (password) {
+        updateData.password = password;
+      }
+
+      if (req.files && req.files["profilePic"]) {
+        updateData.profilePic = req.files["profilePic"][0].path;
+      }
+
+      if (req.files && req.files["certificatepic"]) {
+        updateData.certificatepic = req.files["certificatepic"][0].path;
+      }
+
+      if (hasAssignedExams) {
+        updateData.hasAssignedExams = hasAssignedExams;
+      }
+
+      const student = await Student.findOneAndUpdate(
+        { _id: req.params.id, user: req.user._id },
+        updateData,
+        { new: true, runValidators: true }
+      );
+
+      if (!student) {
+        return res.status(404).send("Student not found");
+      }
+
+      const qrCodeData = await QRCode.toDataURL(
+        JSON.stringify({
+          name: student.name,
+          registrationNo: student.registrationNo,
+          course: student.course,
+          dateOfBirth: student.dob,
+        })
+      );
+
+      student.qrCode = qrCodeData;
+      await student.save();
+
+      res.json(student);
+    } catch (err) {
+      console.error("Error updating student:", err);
+      res.status(500).send("Failed to update student");
+    }
+  }
+);
 
 // Get all students created by the logged-in user
 router.get("/", auth, async (req, res) => {
@@ -124,80 +196,8 @@ router.get("/", auth, async (req, res) => {
 });
 
 // Update student
-router.put(
-  "/:id",
-  auth,
-  upload.fields([{ name: "profilePic" }, { name: "certificatePic" }]),
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
 
-    const {
-      name,
-      registrationNo,
-      course,
-      dateOfAdmission,
-      courseDuration,
-      dateOfBirth,
-      mothersName,
-      fathersName,
-      address,
-      grade,
-      password, // Include password in the student update process
-    } = req.body;
-
-    try {
-      const student = await Student.findOneAndUpdate(
-        { _id: req.params.id, user: req.user._id },
-        {
-          name,
-          registrationNo,
-          course,
-          dateOfAdmission,
-          courseDuration,
-          dateOfBirth,
-          mothersName,
-          fathersName,
-          address,
-          grade,
-          password, // Include password in the update object
-          profilePic:
-            req.files && req.files["profilePic"]
-              ? req.files["profilePic"][0].path
-              : undefined,
-          certificatePic:
-            req.files && req.files["certificatePic"]
-              ? req.files["certificatePic"][0].path
-              : undefined,
-        },
-        { new: true, runValidators: true }
-      );
-
-      if (!student) {
-        return res.status(404).send("Student not found");
-      }
-
-      const qrCodeData = await QRCode.toDataURL(
-        JSON.stringify({
-          name: student.name,
-          registrationNo: student.registrationNo,
-          course: student.course,
-          dateOfBirth: student.dateOfBirth,
-        })
-      );
-
-      student.qrCode = qrCodeData;
-      await student.save();
-
-      res.json(student);
-    } catch (err) {
-      console.error("Error updating student:", err);
-      res.status(500).send("Failed to update student");
-    }
-  }
-);
+module.exports = router;
 
 // Delete student
 router.delete("/:id", auth, async (req, res) => {
@@ -237,37 +237,34 @@ router.get("/:id", auth, async (req, res) => {
   }
 });
 
+//student login
 router.post("/login", async (req, res) => {
   try {
     const { registrationNo, password } = req.body;
 
-    // Check if registration number and password are provided
     if (!registrationNo || !password) {
       return res
         .status(400)
         .json({ message: "Registration number and password are required" });
     }
 
-    // Find the student by registration number
-    const student = await Student.findOne({ registrationNo });
+    const student = await Student.findOne({ registrationNo }).populate(
+      "hasAssignedExams"
+    );
 
-    // If student is not found, return an error
     if (!student) {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    // Check if the provided password matches the stored password
     if (student.password !== password) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Generate JWT token
     const token = jwt.sign({ studentId: student._id }, secret, {
-      expiresIn: "1h", // Token expires in 1 hour
+      expiresIn: "1h",
     });
 
-    // Send the token back to the client
-    res.status(200).json({ token });
+    res.status(200).json({ token, assignedExams: student.hasAssignedExams });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });

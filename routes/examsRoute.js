@@ -9,6 +9,7 @@ const Student = require("../models/student");
 
 const router = express.Router();
 
+
 // Create an exam
 router.post(
   "/",
@@ -35,7 +36,7 @@ router.post(
   }
 );
 
-// Get all exams with complete questions for admin
+// Get all exams for admin
 router.get("/admin", auth, async (req, res) => {
   try {
     const exams = await Exam.find().populate("questions");
@@ -45,15 +46,91 @@ router.get("/admin", auth, async (req, res) => {
   }
 });
 
-// Get all exams with complete questions for students
+// Get assigned exams for student
 router.get("/student", studentAuth, async (req, res) => {
   try {
-    const exams = await Exam.find().populate("questions");
-    res.status(200).json(exams);
+    // Fetch the student data along with the assigned exams
+    const student = await Student.findById(req.student._id)
+      .populate({
+        path: "hasAssignedExams",
+        populate: {
+          path: "questions"
+        }
+      });
+
+    if (!student) {
+      return res.status(404).json({ errors: [{ msg: "Student not found" }] });
+    }
+
+    const assignedExams = student.hasAssignedExams;
+    res.status(200).json(assignedExams);
   } catch (err) {
     res.status(500).json({ errors: [{ msg: "Server error" }] });
   }
 });
+
+
+// Assign an exam to a student
+router.post("/assign", auth, async (req, res) => {
+  const { studentId, examId } = req.body;
+
+  try {
+    const student = await Student.findById(studentId);
+    const exam = await Exam.findById(examId);
+
+    if (!student || !exam) {
+      console.error("Student or Exam not found", { student, exam });
+      return res.status(404).json({ errors: [{ msg: "Student or Exam not found" }] });
+    }
+
+    // Check if the exam is already assigned
+    const isExamAlreadyAssigned = student.hasAssignedExams.includes(examId);
+
+    if (isExamAlreadyAssigned) {
+      return res.status(400).json({ errors: [{ msg: "Exam is already assigned to the student" }] });
+    }
+
+    console.log("Before assignment:", student.hasAssignedExams);
+    student.hasAssignedExams.push(examId);
+    await student.save();
+    console.log("After assignment:", student.hasAssignedExams);
+
+    res.status(200).json({ msg: "Exam assigned to student successfully" });
+  } catch (err) {
+    console.error("Server error:", err.message);
+    res.status(500).json({ errors: [{ msg: "Server error" }] });
+  }
+});
+
+//search exam by title
+router.post("/getExamByName", async (req, res) => {
+  let { examName } = req.body;
+
+  if (!examName) {
+    return res.status(400).json({ errors: [{ msg: "Exam name is required" }] });
+  }
+
+  examName = examName.toLowerCase(); // Convert examName to lowercase
+
+  try {
+    // Find all exams whose title contains the search term ignoring case
+    const exams = await Exam.find({ title: { $regex: new RegExp(examName, "i") } }).populate("questions");
+    
+    if (exams.length === 0) {
+      return res.status(404).json({ errors: [{ msg: "No exams found" }] });
+    }
+    
+    res.status(200).json(exams);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ errors: [{ msg: "Server error" }] });
+  }
+});
+
+
+
+
+
 
 // Update an exam by ID
 router.put(
@@ -192,7 +269,5 @@ router.post("/:examId/attend", studentAuth, async (req, res) => {
     res.status(500).json({ errors: [{ msg: "Failed to submit the exam. Please try again." }] });
   }
 });
-
-
 
 module.exports = router;
