@@ -237,6 +237,25 @@ router.get("/:registrationNo", auth, async (req, res) => {
   }
 });
 
+// Get a single student by ID
+router.get("/id/:id", auth, async (req, res) => {
+  try {
+    const student = await Student.findOne({
+      _id: req.params.id,
+      user: req.user._id,
+    });
+
+    if (!student) {
+      return res.status(404).send("Student not found");
+    }
+
+    res.json(student);
+  } catch (err) {
+    console.error("Error fetching student:", err);
+    res.status(500).send("Failed to fetch student");
+  }
+});
+
 //student login
 router.post("/login", async (req, res) => {
   try {
