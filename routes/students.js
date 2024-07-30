@@ -218,11 +218,11 @@ router.delete("/:id", auth, async (req, res) => {
   }
 });
 
-// Get a single student by ID
-router.get("/:id", auth, async (req, res) => {
+// Get a single student by Registration No
+router.get("/:registrationNo", auth, async (req, res) => {
   try {
     const student = await Student.findOne({
-      _id: req.params.id,
+      registrationNo: req.params.registrationNo,
       user: req.user._id,
     });
 
