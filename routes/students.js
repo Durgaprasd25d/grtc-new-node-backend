@@ -219,11 +219,13 @@ router.delete("/:id", auth, async (req, res) => {
 });
 
 // Get a single student by Registration No
-router.get("/:registrationNo", auth, async (req, res) => {
+router.get("/:registrationNo", async (req, res) => {
   try {
     const student = await Student.findOne({
       registrationNo: req.params.registrationNo,
-      user: req.user._id,
+    }).populate({
+      path: 'completedExams.exam', // Populate the exam field in completedExams
+      model: 'Exam' // Adjust the model name if your exam model is named differently
     });
 
     if (!student) {
@@ -236,6 +238,7 @@ router.get("/:registrationNo", auth, async (req, res) => {
     res.status(500).send("Failed to fetch student");
   }
 });
+
 
 // Get a single student by ID
 router.get("/id/:id", auth, async (req, res) => {

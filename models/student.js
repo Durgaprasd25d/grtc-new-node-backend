@@ -16,9 +16,17 @@ const studentSchema = new mongoose.Schema({
   qrCode: { type: String },
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   attendedExams: { type: Number, default: 0 },
-  attendedExamsList: [{ type: mongoose.Schema.Types.ObjectId, ref: "Exam" }],
+  completedExams: [
+    {
+      exam: { type: mongoose.Schema.Types.ObjectId, ref: "Exam" },
+      attendedQuestions: Number,
+      correctAnswers: Number,
+      totalQuestions: Number,
+      percentge:Number
+    },
+  ],
   password: { type: String },
-  hasAssignedExams: [{ type: mongoose.Schema.Types.ObjectId, ref: "Exam" }]
+  hasAssignedExams: [{ type: mongoose.Schema.Types.ObjectId, ref: "Exam" }],
 });
 
 const Student = mongoose.model("Student", studentSchema);

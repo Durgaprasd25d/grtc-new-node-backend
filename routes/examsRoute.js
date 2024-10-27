@@ -9,7 +9,6 @@ const Student = require("../models/student");
 
 const router = express.Router();
 
-
 // Create an exam
 router.post(
   "/",
@@ -50,13 +49,12 @@ router.get("/admin", auth, async (req, res) => {
 router.get("/student", studentAuth, async (req, res) => {
   try {
     // Fetch the student data along with the assigned exams
-    const student = await Student.findById(req.student._id)
-      .populate({
-        path: "hasAssignedExams",
-        populate: {
-          path: "questions"
-        }
-      });
+    const student = await Student.findById(req.student._id).populate({
+      path: "hasAssignedExams",
+      populate: {
+        path: "questions",
+      },
+    });
 
     if (!student) {
       return res.status(404).json({ errors: [{ msg: "Student not found" }] });
@@ -69,7 +67,6 @@ router.get("/student", studentAuth, async (req, res) => {
   }
 });
 
-
 // Assign an exam to a student
 router.post("/assign", auth, async (req, res) => {
   const { studentId, examId } = req.body;
@@ -80,20 +77,22 @@ router.post("/assign", auth, async (req, res) => {
 
     if (!student || !exam) {
       console.error("Student or Exam not found", { student, exam });
-      return res.status(404).json({ errors: [{ msg: "Student or Exam not found" }] });
+      return res
+        .status(404)
+        .json({ errors: [{ msg: "Student or Exam not found" }] });
     }
 
     // Check if the exam is already assigned
     const isExamAlreadyAssigned = student.hasAssignedExams.includes(examId);
 
     if (isExamAlreadyAssigned) {
-      return res.status(400).json({ errors: [{ msg: "Exam is already assigned to the student" }] });
+      return res
+        .status(400)
+        .json({ errors: [{ msg: "Exam is already assigned to the student" }] });
     }
 
-    console.log("Before assignment:", student.hasAssignedExams);
     student.hasAssignedExams.push(examId);
     await student.save();
-    console.log("After assignment:", student.hasAssignedExams);
 
     res.status(200).json({ msg: "Exam assigned to student successfully" });
   } catch (err) {
@@ -114,23 +113,20 @@ router.post("/getExamByName", async (req, res) => {
 
   try {
     // Find all exams whose title contains the search term ignoring case
-    const exams = await Exam.find({ title: { $regex: new RegExp(examName, "i") } }).populate("questions");
-    
+    const exams = await Exam.find({
+      title: { $regex: new RegExp(examName, "i") },
+    }).populate("questions");
+
     if (exams.length === 0) {
       return res.status(404).json({ errors: [{ msg: "No exams found" }] });
     }
-    
+
     res.status(200).json(exams);
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ errors: [{ msg: "Server error" }] });
   }
 });
-
-
-
-
-
 
 // Update an exam by ID
 router.put(
@@ -219,30 +215,50 @@ router.post("/:examId/attend", studentAuth, async (req, res) => {
       return res.status(404).json({ errors: [{ msg: "Exam not found" }] });
     }
 
-    if (!answers || !Array.isArray(answers) || answers.length !== exam.questions.length) {
-      return res.status(400).json({ errors: [{ msg: "Invalid answers format" }] });
+    if (
+      !answers ||
+      !Array.isArray(answers) ||
+      answers.length !== exam.questions.length
+    ) {
+      return res
+        .status(400)
+        .json({ errors: [{ msg: "Invalid answers format" }] });
     }
 
     const student = req.student;
 
     // Check if the student has already attended the exam
-    if (student.attendedExamsList && student.attendedExamsList.includes(examId)) {
-      return res.status(400).json({ errors: [{ msg: "You have already attempted this exam" }] });
+    if (
+      student.completedExams.some(
+        (completedExam) => completedExam.exam.toString() === examId
+      )
+    ) {
+      return res
+        .status(400)
+        .json({ errors: [{ msg: "You have already attempted this exam" }] });
     }
 
     let attendedQuestions = 0;
     let correctAnswers = 0;
+    let percentge = 0;
 
     exam.questions.forEach((question, index) => {
       const studentAnswer = answers[index];
-      if (!studentAnswer || studentAnswer.questionId.toString() !== question._id.toString()) {
-        return res.status(400).json({ errors: [{ msg: "Invalid answer format" }] });
+      if (
+        !studentAnswer ||
+        studentAnswer.questionId.toString() !== question._id.toString()
+      ) {
+        return res
+          .status(400)
+          .json({ errors: [{ msg: "Invalid answer format" }] });
       }
       attendedQuestions++;
       if (studentAnswer.answer === question.correctAnswer) {
         correctAnswers++;
       }
     });
+
+    percentge = (correctAnswers / exam.questions.length) * 100;
 
     const answerRecord = new Answer({
       student: student._id,
@@ -251,12 +267,18 @@ router.post("/:examId/attend", studentAuth, async (req, res) => {
     });
     await answerRecord.save();
 
-    // Update the student's attended exams
+    // Update student's completed exams
+    student.completedExams.push({
+      exam: examId,
+      attendedQuestions,
+      correctAnswers,
+      totalQuestions: exam.questions.length,
+      percentge,
+    });
+
+    // Increment attendedExams count
     student.attendedExams += 1;
-    if (!student.attendedExamsList) {
-      student.attendedExamsList = [];
-    }
-    student.attendedExamsList.push(examId);
+
     await student.save();
 
     res.status(200).json({
@@ -266,7 +288,11 @@ router.post("/:examId/attend", studentAuth, async (req, res) => {
     });
   } catch (err) {
     console.error(err.message);
-    res.status(500).json({ errors: [{ msg: "Failed to submit the exam. Please try again." }] });
+    res
+      .status(500)
+      .json({
+        errors: [{ msg: "Failed to submit the exam. Please try again." }],
+      });
   }
 });
 
