@@ -26,8 +26,32 @@ mongoose
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.log(err));
 
+const allowedOrigins = [
+  "https://gurukrupa-admin.netlify.app",
+  "https://grtc-institute.netlify.app",
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    // Check if origin is in the allowedOrigins array
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true); // Allow request if origin is in allowedOrigins
+    } else {
+      // Optionally allow any origin or reject based on your needs
+      callback(new Error("Not allowed by CORS")); // Reject if origin is not allowed
+    }
+  },
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true, // Enable if cookies or authorization headers are needed
+};
+
+app.use(cors(corsOptions));
+
 // Middleware
-app.use(cors());
 app.use(bodyParser.json());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
